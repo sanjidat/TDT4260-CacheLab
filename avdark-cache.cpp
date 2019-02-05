@@ -42,7 +42,7 @@
  * HINT: You will probably need to change this structure
  */
 struct avdc_cache_line {
-        uint32_t last_used = 0;
+        uint32_t age = 0;
         avdc_tag_t tag;
         int        valid;
 };
@@ -122,28 +122,29 @@ avdc_access(avdark_cache_t *self, avdc_pa_t pa, avdc_access_type_t type)
         /* TODO: Update this function */
         avdc_tag_t tag = tag_from_pa(self, pa);
         int index = index_from_pa(self, pa);
-        int hit = false;
-
-        for (unsigned int i = 0; i < self->assoc; i+=self->number_of_sets) {
-                hit |= self->lines[index+i].valid && self->lines[index+i].tag == tag;
-                self->lines[index+i].last_used ++;
-        }
-        if (hit) {
-                self->lines[index].last_used = 0;
-                printf("found %u, wohoooo!\n", index);
-        } else {
-                unsigned int lru_index = index;
-                unsigned int lru_last_used = self->lines[index].last_used;
-                for (unsigned int i = 0; i < self->assoc; i++) {
-                        if (self->lines[index+i].last_used > lru_last_used) {
-                                lru_index = index+i;
-                                lru_last_used = self->lines[index+i].last_used;
-                        }
-                }
-                self->lines[lru_index].valid = 1;
-                self->lines[lru_index].tag = tag;
-                printf("replacing %u ",lru_index);
-                printf("which was last used %u steps ago\n", lru_last_used);
+	int hit = false;
+	unsigned int number_of_lines = self->number_of_sets*self->assoc;
+	for (unsigned int i = index; i < number_of_lines; i += self->number_of_sets) {
+		if (self->lines[i].valid && self->lines[i].tag == tag) {
+			hit = true;
+			index = i;
+			self->lines[i].age = 0;
+		} else {
+			self->lines[i].age += 1;
+		}
+	}
+	if (!hit) {
+		unsigned int oldest = self->lines[index].age;
+		unsigned int oldest_index = index;
+		for (unsigned int i = index+self->number_of_sets; i < number_of_lines; i += self->number_of_sets) {
+			if (self->lines[i].age > oldest) {
+				oldest = self->lines[i].age;
+				oldest_index = i;
+			}
+		}
+		self->lines[oldest_index].valid = 1;
+                self->lines[oldest_index].tag = tag;
+		self->lines[oldest_index].age = 0;
         }
 
         switch (type) {
@@ -211,7 +212,7 @@ avdc_resize(avdark_cache_t *self,
         /* HINT: If you change this, you may have to update
          * avdc_delete() to reflect changes to how thie self->lines
          * array is allocated. */
-        self->lines = AVDC_MALLOC(self->number_of_sets, avdc_cache_line_t);
+        self->lines = AVDC_MALLOC(self->number_of_sets*self->assoc, avdc_cache_line_t);
 
         /* Flush the cache, this initializes the tag array to a known state */
         avdc_flush_cache(self);
