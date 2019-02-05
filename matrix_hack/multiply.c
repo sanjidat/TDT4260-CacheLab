@@ -16,7 +16,7 @@
 #include <string.h>
 
 /* Size of the matrices to multiply */
-#define SIZE 1000
+#define SIZE 750
 
 /* HINT: The Makefile allows you to specify L1 and L2 block sizes as
  * compile time options.These may be specified when calling make,
@@ -44,9 +44,17 @@ matmul_opt()
          * matmul_ref() for a reference solution.
          */
          //1 - access pattern i - j - k
-
          int i, j, k;
 
+         for (j = 0; j < SIZE; j++) {
+                 for (i = 0; i < SIZE; i++) {
+                         for (k = 0; k < SIZE; k++) {
+                                 mat_ref[i][j] += mat_a[i][k] * mat_b[k][j];
+                         }
+                 }
+         }
+
+/*
          for (i = 0; i < SIZE; i++) {
                  for (j = 0; j < SIZE; j++) {
                          for (k = 0; k < SIZE; k++) {
@@ -54,7 +62,7 @@ matmul_opt()
                          }
                  }
          }
-
+         */
 }
 
 /**
